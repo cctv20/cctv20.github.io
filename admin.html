@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>博客后台 - Ikeda 的博客</title>
+<style>
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;max-width:760px;margin:0 auto;padding:20px 16px 60px;color:#222;background:#fafafa}
+h1{font-size:22px} h2{font-size:17px;margin-top:28px}
+input[type=text],input[type=password],textarea{width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:15px;margin:6px 0 12px}
+textarea{min-height:220px;line-height:1.7}
+button{background:#1a73e8;color:#fff;border:0;border-radius:6px;padding:10px 18px;font-size:15px;cursor:pointer}
+button.ghost{background:#eee;color:#333}
+button.danger{background:#d93025}
+button:disabled{opacity:.5}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.post-item{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid #e3e3e3;border-radius:6px;padding:10px 12px;margin:8px 0}
+.post-item a{color:#1a73e8;text-decoration:none}
+#msg{white-space:pre-wrap;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:10px 12px;margin:14px 0;display:none}
+.small{color:#666;font-size:13px;line-height:1.6}
+.card{background:#fff;border:1px solid #e3e3e3;border-radius:8px;padding:16px;margin:14px 0}
+</style>
+</head>
+<body>
+<h1>Ikeda 的博客 · 后台</h1>
+<p class="small">在这里写文章、发布、删除，都会直接更新到博客网站（cctv20.github.io），一两分钟后生效。这个页面本身不会被搜索引擎收录。</p>
+
+<div class="card" id="loginCard">
+  <h2 style="margin-top:0">第一步：填入 GitHub 令牌</h2>
+  <p class="small">令牌只保存在你这台设备的浏览器里，不会上传到别处。没有令牌的话，按页面下方“怎么拿令牌”做一次就行。</p>
+  <input type="password" id="token" placeholder="粘贴 GitHub 令牌（github_pat_ 开头）">
+  <div class="row">
+    <button id="saveToken">保存并连接</button>
+    <button class="ghost" id="clearToken">清除令牌</button>
+  </div>
+  <p class="small">怎么拿令牌：登录 GitHub 后打开 <b>Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token</b>。名字随便填；Repository access 选 <b>Only select repositories</b>，勾选 <b>cctv20.github.io</b>；Permissions 里把 <b>Contents</b> 设为 <b>Read and write</b>；生成后复制令牌粘到上面。</p>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">写新文章</h2>
+  <input type="text" id="postTitle" placeholder="文章标题">
+  <textarea id="postBody" placeholder="正文，一段一行，空行分段也可以"></textarea>
+  <div class="row">
+    <button id="publish">发布文章</button>
+    <span class="small" id="pubHint">发布后会自动加到首页和 sitemap。</span>
+  </div>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">已发布的文章</h2>
+  <div id="postList"><p class="small">先填好令牌，这里会列出全部文章。</p></div>
+  <button class="ghost" id="refresh">刷新列表</button>
+</div>
+
+<div id="msg"></div>
+
+<script>
+const OWNER = "cctv20", REPO = "cctv20.github.io", SITE = "https://cctv20.github.io";
+const $ = id => document.getElementById(id);
+let token = localStorage.getItem("blog_admin_token") || "";
+if (token) $("token").value = token;
+
+function showMsg(t){ const m=$("msg"); m.style.display="block"; m.textContent=t; }
+function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function b64encode(str){ return btoa(unescape(encodeURIComponent(str))); }
+function b64decode(b64){ return decodeURIComponent(escape(atob(b64.replace(/\n/g,"")))); }
+
+async function api(path, opts={}){
+  const r = await fetch("https://api.github.com/repos/"+OWNER+"/"+REPO+"/contents/"+path, {
+    ...opts,
+    headers: { "Authorization":"Bearer "+token, "Accept":"application/vnd.github+json", "Content-Type":"application/json", ...(opts.headers||{}) }
+  });
+  if (!r.ok){ const t = await r.text(); throw new Error("GitHub 返回 "+r.status+"："+t.slice(0,200)); }
+  return r.status===204 ? null : r.json();
+}
+async function getFile(path){
+  const j = await api(path);
+  return { sha: j.sha, text: b64decode(j.content) };
+}
+async function putFile(path, text, message, sha){
+  const body = { message, content: b64encode(text) };
+  if (sha) body.sha = sha;
+  return api(path, { method:"PUT", body: JSON.stringify(body) });
+}
+
+$("saveToken").onclick = async () => {
+  token = $("token").value.trim();
+  if (!token) return showMsg("先把令牌粘进来。");
+  localStorage.setItem("blog_admin_token", token);
+  try { await api(""); showMsg("连接成功，可以发文章了。"); loadPosts(); }
+  catch(e){ showMsg("连接失败："+e.message); }
+};
+$("clearToken").onclick = () => { localStorage.removeItem("blog_admin_token"); token=""; $("token").value=""; showMsg("令牌已从这台设备清除。"); };
+
+function postTemplate(title, bodyText, dateStr){
+  const paras = bodyText.split(/\n\s*\n|\n/).map(s=>s.trim()).filter(Boolean)
+    .map(p=>"<p>"+esc(p)+"</p>").join("\n");
+  return "<!DOCTYPE html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\">" +
+  "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
+  "<title>"+esc(title)+" - Ikeda 的博客</title>" +
+  "<meta name=\"description\" content=\""+esc(bodyText.replace(/\s+/g," ").slice(0,80))+"\">" +
+  "</head><body><header><h1>Ikeda 的博客</h1><nav><a href=\"/\">首页</a> | <a href=\"/about.html\">关于</a></nav></header>" +
+  "<article><h1>"+esc(title)+"</h1><p><time>"+dateStr+"</time></p>\n"+paras+"\n</article>" +
+  "<p><a href=\"/\">返回首页</a></p><footer><p>© Ikeda</p></footer></body></html>";
+}
+
+$("publish").onclick = async () => {
+  if (!token) return showMsg("先填令牌并保存连接。");
+  const title = $("postTitle").value.trim(), body = $("postBody").value.trim();
+  if (!title || !body) return showMsg("标题和正文都要写。");
+  const btn = $("publish"); btn.disabled = true;
+  try {
+    const now = new Date();
+    const pad = n => String(n).padStart(2,"0");
+    const dateStr = now.getFullYear()+"-"+pad(now.getMonth()+1)+"-"+pad(now.getDate());
+    const slug = "posts/"+dateStr+"-"+now.getTime().toString(36)+".html";
+    const html = postTemplate(title, body, dateStr);
+    showMsg("正在发布文章文件…");
+    await putFile(slug, html, "发布文章："+title);
+
+    showMsg("文章已建，正在更新首页…");
+    const idx = await getFile("index.html");
+    const entry = "<p><a href=\"/"+slug+"\">"+esc(title)+"</a> <small>"+dateStr+"</small></p>\n";
+    let newIndex;
+    if (idx.text.includes("</header>")) newIndex = idx.text.replace("</header>", "</header>\n<main>\n"+entry+"</main>");
+    else if (idx.text.includes("<footer")) newIndex = idx.text.replace("<footer", entry+"<footer");
+    else newIndex = idx.text + entry;
+    if (idx.text.includes("<main>") && idx.text.includes("</main>"))
+      newIndex = idx.text.replace("</main>", entry+"</main>");
+    await putFile("index.html", newIndex, "首页添加文章："+title, idx.sha);
+
+    showMsg("首页已更新，正在更新 sitemap…");
+    try {
+      const sm = await getFile("sitemap.xml");
+      const urlEntry = "  <url><loc>"+SITE+"/"+slug+"</loc><lastmod>"+dateStr+"</lastmod></url>\n";
+      const newSm = sm.text.includes("</urlset>") ? sm.text.replace("</urlset>", urlEntry+"</urlset>") : sm.text + urlEntry;
+      await putFile("sitemap.xml", newSm, "sitemap 添加："+title, sm.sha);
+    } catch(e){ /* sitemap 更新失败不挡发布 */ }
+
+    showMsg("发布成功！一两分钟后打开 "+SITE+"/"+slug+" 就能看到。");
+    $("postTitle").value=""; $("postBody").value="";
+    loadPosts();
+  } catch(e){ showMsg("发布失败："+e.message); }
+  btn.disabled = false;
+};
+
+async function loadPosts(){
+  if (!token) return;
+  const list = $("postList");
+  try {
+    const items = await api("posts");
+    const files = (Array.isArray(items)?items:[]).filter(f=>f.name.endsWith(".html"));
+    if (!files.length){ list.innerHTML = "<p class='small'>还没有文章。</p>"; return; }
+    list.innerHTML = "";
+    files.sort((a,b)=>b.name.localeCompare(a.name)).forEach(f=>{
+      const div = document.createElement("div"); div.className="post-item";
+      div.innerHTML = "<a target='_blank' href='"+SITE+"/posts/"+f.name+"'>"+f.name+"</a>";
+      const del = document.createElement("button"); del.className="danger"; del.textContent="删除";
+      del.onclick = () => deletePost(f);
+      div.appendChild(del); list.appendChild(div);
+    });
+  } catch(e){ list.innerHTML = "<p class='small'>列表加载失败："+esc(e.message)+"</p>"; }
+}
+async function deletePost(f){
+  if (!confirm("确定删除 "+f.name+" 吗？删了就没了。")) return;
+  try {
+    showMsg("正在删除 "+f.name+" …");
+    await api("posts/"+f.name, { method:"DELETE", body: JSON.stringify({ message:"删除文章："+f.name, sha:f.sha }) });
+    const idx = await getFile("index.html");
+    const lines = idx.text.split("\n").filter(l=>!l.includes("posts/"+f.name));
+    if (lines.join("\n") !== idx.text) await putFile("index.html", lines.join("\n"), "首页移除："+f.name, idx.sha);
+    try {
+      const sm = await getFile("sitemap.xml");
+      const sl = sm.text.split("\n").filter(l=>!l.includes("posts/"+f.name));
+      if (sl.join("\n") !== sm.text) await putFile("sitemap.xml", sl.join("\n"), "sitemap 移除："+f.name, sm.sha);
+    } catch(e){}
+    showMsg("已删除 "+f.name+"，一两分钟后生效。");
+    loadPosts();
+  } catch(e){ showMsg("删除失败："+e.message); }
+}
+$("refresh").onclick = loadPosts;
+if (token) loadPosts();
+</script>
+</body>
+</html>
