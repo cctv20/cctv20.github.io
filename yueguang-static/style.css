@@ -1,0 +1,44 @@
+
+:root{--paper:#FBFBF9;--ink:#1A1A18;--gray:#55534E;--line:#E4E2DC;--red:#9E2A2B;--soft:#F3F1EC}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.85;font-size:16px}
+a{color:var(--ink);text-decoration:none}a:hover{color:var(--red)}
+.wrap{max-width:880px;margin:0 auto;padding:0 20px}
+header.site{border-bottom:2px solid var(--ink);padding:26px 0 14px;text-align:center}
+header.site .brand{font-family:"Noto Serif SC","Songti SC",serif;font-size:40px;font-weight:900;letter-spacing:.35em;text-indent:.35em}
+header.site .tag{color:var(--gray);font-size:13px;letter-spacing:.5em;text-indent:.5em;margin-top:2px}
+nav.main{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
+nav.main a{color:var(--gray)} nav.main a:hover{color:var(--red)}
+.stats{display:flex;gap:0;justify-content:center;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.stats div{padding:14px 22px;text-align:center}
+.stats b{font-family:"Noto Serif SC",serif;font-size:24px;display:block}
+.stats span{font-size:12px;color:var(--gray);letter-spacing:.2em}
+h2.sec{font-family:"Noto Serif SC",serif;font-size:21px;margin:34px 0 6px;padding-bottom:8px;border-bottom:1px solid var(--ink)}
+.catgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:14px}
+.catgrid a{border:1px solid var(--line);padding:14px 16px;background:#fff}
+.catgrid b{font-family:"Noto Serif SC",serif;font-size:17px;display:block}
+.catgrid span{color:var(--gray);font-size:12px}
+.postlist{margin-top:8px}
+.postlist a{display:flex;justify-content:space-between;gap:14px;padding:11px 2px;border-bottom:1px solid var(--soft)}
+.postlist .t{font-family:"Noto Serif SC",serif;font-size:16.5px}
+.postlist .d{color:var(--gray);font-size:13px;white-space:nowrap}
+article{padding:30px 0 10px}
+article h1{font-family:"Noto Serif SC",serif;font-size:29px;line-height:1.45;font-weight:900}
+.meta{color:var(--gray);font-size:13.5px;margin:10px 0 22px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.meta a{color:var(--red)}
+.body{font-size:16.5px}
+.body p{margin:0 0 1.1em}
+.body img{max-width:100%;height:auto;display:block;margin:14px auto}
+.body figure{margin:18px 0;text-align:center}
+.body figcaption{color:var(--gray);font-size:13px;margin-top:6px}
+.pn{display:flex;justify-content:space-between;gap:16px;margin:30px 0 6px;font-size:14px}
+.rel{margin-top:26px}.rel a{display:block;padding:8px 2px;border-bottom:1px solid var(--soft);font-family:"Noto Serif SC",serif}
+footer{border-top:2px solid var(--ink);margin-top:44px;padding:20px 0 34px;text-align:center;color:var(--gray);font-size:13px}
+footer .seal{display:inline-block;background:var(--red);color:#fff;font-family:"Noto Serif SC",serif;padding:2px 8px;border-radius:2px;letter-spacing:.3em;text-indent:.3em;margin-bottom:8px}
+input#q{width:100%;padding:13px 16px;font-size:17px;border:1.5px solid var(--ink);border-radius:3px;background:#fff}
+.sres a{display:block;padding:12px 2px;border-bottom:1px solid var(--soft)}
+.sres .t{font-family:"Noto Serif SC",serif;font-size:17px}
+.sres .s{color:var(--gray);font-size:13.5px;line-height:1.65}
+mark{background:#F5E6C8;padding:0 1px}
+.crumb{font-size:13px;color:var(--gray);padding-top:18px}.crumb a{color:var(--gray)}
+@media(max-width:600px){header.site .brand{font-size:32px}.postlist a{flex-direction:column;gap:0}}
